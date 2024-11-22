@@ -59,12 +59,12 @@ python evaluation/evaluate.py --resume_model="./output/model_save_CAMERA/model.p
 
 If you find our work useful, please cite:
 ```
-@inproceedings{zhang2025lapose,
+@inproceedings{zhang2024lapose,
   title={LaPose: Laplacian Mixture Shape Modeling for RGB-Based Category-Level Object Pose Estimation},
   author={Zhang, Ruida and Huang, Ziqin and Wang, Gu and Zhang, Chenyangguang and Di, Yan and Zuo, Xingxing and Tang, Jiwen and Ji, Xiangyang},
   booktitle={European Conference on Computer Vision},
   pages={467--484},
-  year={2025},
+  year={2024},
   organization={Springer}
 }
 ```
