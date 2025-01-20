@@ -42,7 +42,8 @@ def convnext_backbone():
                     out_indices=(3,),
                 )
     pretrained_cfg = timm.create_model("convnext_base").default_cfg
-    INIT_CFG['pretrained_cfg'] = pretrained_cfg
+    # INIT_CFG['pretrained_cfg'] = pretrained_cfg
+    INIT_CFG['pretrained'] = False
     return my_create_timm_model(**INIT_CFG)
 
 if __name__ == '__main__':

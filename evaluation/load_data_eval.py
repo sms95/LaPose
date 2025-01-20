@@ -5,6 +5,7 @@ import math
 import random
 import numpy as np
 import _pickle as cPickle
+import pickle as pkl
 from config.config import *
 FLAGS = flags.FLAGS
 
@@ -31,6 +32,7 @@ class NocsDataset(data.Dataset):
         '''
         self.source = source
         self.mode = mode
+        use_real_mean = True
         data_dir = FLAGS.dataset_dir
         self.data_dir = data_dir
         self.n_pts = n_pts
@@ -38,7 +40,7 @@ class NocsDataset(data.Dataset):
         if FLAGS.eval_refine_mug:
             self.detection_dir = os.path.join(data_dir, 'detection_dualposenet/data/segmentation_results_refine_for_mug')
         else:
-            self.detection_dir = os.path.join(data_dir, 'detection_dualposenet/data/segmentation_results')
+            self.detection_dir = os.path.join(data_dir, 'segmentation_results')
 
         assert source in ['CAMERA', 'Real', 'CAMERA+Real']
         assert mode in ['train', 'test']
@@ -83,7 +85,7 @@ class NocsDataset(data.Dataset):
                                    '4': '02946921',
                                    '5': '03642806',
                                    '6': '03797390'}
-        if source == 'CAMERA' and not FLAGS.use_real_mean:
+        if source == 'CAMERA' and not use_real_mean:
             self.id2cat_name = self.id2cat_name_CAMERA
 
         per_obj = FLAGS.per_obj
@@ -156,7 +158,7 @@ class NocsDataset(data.Dataset):
                                           dtype=np.float32)  # [fx, fy, cx, cy]
         self.real_intrinsics = np.array([[591.0125, 0, 322.525], [0, 590.16775, 244.11084], [0, 0, 1]], dtype=np.float32)
         self.invaild_list = []
-        self.shape_prior = np.load(os.path.join(data_dir, 'results/mean_shape/mean_points_emb.npy'))
+        # self.shape_prior = np.load(os.path.join(data_dir, 'results/mean_shape/mean_points_emb.npy'))
 
         self.img_mean = (0.485, 0.456, 0.406)
         self.img_std = (0.229, 0.224, 0.225)
@@ -231,7 +233,7 @@ class NocsDataset(data.Dataset):
         obj_ids_0base = []
         roi_coord_2ds = []
         obj_valid_index = []
-        shape_priors = []
+        # shape_priors = []
         bbox_centers = []
         resize_ratios = []
         roi_whs = []
@@ -333,7 +335,7 @@ class NocsDataset(data.Dataset):
             mean_shape = mean_shape / 1000.0
             mean_shape_CAMERA = self.get_mean_shape(self.id2cat_name_CAMERA[str(cat_id)])
             mean_shape_CAMERA = mean_shape_CAMERA / 1000.0
-            shape_prior = self.shape_prior[cat_id - 1]
+            # shape_prior = self.shape_prior[cat_id - 1]
 
 
             roi_imgs.append(roi_img)
@@ -347,7 +349,7 @@ class NocsDataset(data.Dataset):
             obj_ids.append(cat_id)
             obj_ids_0base.append(cat_id - 1)
             roi_coord_2ds.append(roi_coord_2d)
-            shape_priors.append(shape_prior)
+            # shape_priors.append(shape_prior)
             roi_whs.append(np.array([bw, bh], dtype=np.float32))
             img_scales.append(img_scale)
             resize_ratios.append(FLAGS.out_res / img_scale)
@@ -380,7 +382,7 @@ class NocsDataset(data.Dataset):
         obj_ids = np.array(obj_ids)
         obj_ids_0base = np.array(obj_ids_0base)
         roi_coord_2ds = np.array(roi_coord_2ds)
-        shape_priors = np.array(shape_priors)
+        # shape_priors = np.array(shape_priors)
         roi_dino_imgs = np.array(roi_dino_imgs)
         data_dict = {}
         data_dict['full_img'] = torch.as_tensor(full_imgs.astype(np.float32)).contiguous()
@@ -396,7 +398,7 @@ class NocsDataset(data.Dataset):
         data_dict['mean_size'] = torch.as_tensor(mean_shapes, dtype=torch.float32).contiguous()
         data_dict['mean_size_camera'] = torch.as_tensor(mean_shapes_CAMERA, dtype=torch.float32).contiguous()
         data_dict['roi_coord_2d'] = torch.as_tensor(roi_coord_2ds, dtype=torch.float32).contiguous()
-        data_dict['shape_prior'] = torch.as_tensor(shape_priors, dtype=torch.float32).contiguous()
+        # data_dict['shape_prior'] = torch.as_tensor(shape_priors, dtype=torch.float32).contiguous()
         data_dict['roi_wh'] = torch.as_tensor(np.array(roi_whs), dtype=torch.float32).contiguous()
         data_dict["img_scale"] = torch.as_tensor(np.array(img_scales), dtype=torch.float32).contiguous()
         data_dict["resize_ratio"] = torch.as_tensor(np.array(resize_ratios), dtype=torch.float32).contiguous()
@@ -404,6 +406,27 @@ class NocsDataset(data.Dataset):
         data_dict["gt_nocs_coor"] = torch.as_tensor(np.array(gts_nocs_coor), dtype=torch.float32).contiguous()
         data_dict['dino_img'] = torch.as_tensor(roi_dino_imgs, dtype=torch.float32).contiguous()
         data_dict["img_path"] = img_path
+        # data_dict['full_img'] = torch.tensor(full_imgs, dtype=torch.float32).contiguous()
+        # data_dict['roi_img'] = torch.tensor(roi_imgs, dtype=torch.float32).contiguous()  #torch.as_tensor(roi_imgs.astype(np.float32)).contiguous()
+        # data_dict['roi_img_color'] = torch.tensor(roi_imgs_color, dtype=torch.float32).contiguous() #torch.as_tensor(roi_imgs_color.astype(np.int16)).contiguous()
+        # data_dict['roi_depth'] = torch.tensor(roi_depths, dtype=torch.float32).contiguous() # torch.as_tensor(roi_depths.astype(np.float32)).contiguous()
+        # data_dict['cam_K'] = torch.tensor(out_camK, dtype=torch.float32).contiguous() #torch.as_tensor(out_camK.astype(np.float32)).contiguous()
+        # data_dict['roi_mask'] = torch.tensor(roi_masks, dtype=torch.float32).contiguous() # torch.as_tensor(roi_masks.astype(np.float32)).contiguous()
+        # data_dict['cat_id'] =torch.tensor(obj_ids, dtype=torch.float32).contiguous() # torch.as_tensor(obj_ids)
+        # data_dict['cat_id_0base'] = torch.tensor(obj_ids_0base, dtype=torch.float32).contiguous() #torch.as_tensor(obj_ids_0base)
+        # data_dict['depth_normalize'] = torch.tensor(roi_depth_norms, dtype=torch.float32).contiguous() #torch.as_tensor(roi_depth_norms.astype(np.float32)).contiguous()
+        # data_dict['sym_info'] = torch.tensor(sym_infos, dtype=torch.float32).contiguous() #torch.as_tensor(sym_infos.astype(np.float32)).contiguous()
+        # data_dict['mean_size'] = torch.tensor(mean_shapes, dtype=torch.float32).contiguous() #torch.as_tensor(mean_shapes, dtype=torch.float32).contiguous()
+        # data_dict['mean_size_camera'] = torch.tensor(mean_shapes_CAMERA, dtype=torch.float32).contiguous() #torch.as_tensor(mean_shapes_CAMERA, dtype=torch.float32).contiguous()
+        # data_dict['roi_coord_2d'] =torch.tensor(roi_coord_2ds, dtype=torch.float32).contiguous() # torch.as_tensor(roi_coord_2ds, dtype=torch.float32).contiguous()
+        # # data_dict['shape_prior'] = torch.as_tensor(shape_priors, dtype=torch.float32).contiguous()
+        # data_dict['roi_wh'] = torch.tensor(roi_whs, dtype=torch.float32).contiguous() #torch.as_tensor(np.array(roi_whs), dtype=torch.float32).contiguous()
+        # data_dict["img_scale"] = torch.tensor(img_scales, dtype=torch.float32).contiguous() #torch.as_tensor(np.array(img_scales), dtype=torch.float32).contiguous()
+        # data_dict["resize_ratio"] = torch.tensor(resize_ratios, dtype=torch.float32).contiguous() #torch.as_tensor(np.array(resize_ratios), dtype=torch.float32).contiguous()
+        # data_dict["bbox_center"] = torch.tensor(bbox_centers, dtype=torch.float32).contiguous() #torch.as_tensor(np.array(bbox_centers), dtype=torch.float32).contiguous()
+        # data_dict["gt_nocs_coor"] = torch.tensor(gts_nocs_coor, dtype=torch.float32).contiguous() #torch.as_tensor(np.array(gts_nocs_coor), dtype=torch.float32).contiguous()
+        # data_dict['dino_img'] = torch.tensor(roi_dino_imgs, dtype=torch.float32).contiguous() #torch.as_tensor(roi_dino_imgs, dtype=torch.float32).contiguous()
+        # data_dict["img_path"] = img_path
 
         return data_dict, detection_dict, gts
 

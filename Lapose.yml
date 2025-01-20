@@ -1,4 +1,4 @@
-name: dinov2
+name: lapose
 channels:
   - xformers
   - anaconda
@@ -156,8 +156,8 @@ dependencies:
   - python=3.9.17=h955ad1f_0
   - python-dateutil=2.8.2=pyhd3eb1b0_0
   - python_abi=3.9=2_cp39
-  - pytorch=2.0.1=py3.9_cuda11.7_cudnn8.5.0_0
-  - pytorch-cuda=11.7=h778d358_5
+  # - pytorch=2.0.1=py3.9_cuda11.7_cudnn8.5.0_0
+  # - pytorch-cuda=11.7=h778d358_5
   - pytorch-mutex=1.0=cuda
   - pyyaml=6.0=py39h5eee18b_1
   - qt-main=5.15.2=h7358343_9

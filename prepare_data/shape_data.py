@@ -4,8 +4,128 @@ import h5py
 import glob
 import numpy as np
 import _pickle as cPickle
-from prepare_data.lib.utils import sample_points_from_mesh
+from tqdm import tqdm
+from pdb import set_trace
+# import trimesh
 
+# from prepare_data.lib.utils import sample_points_from_mesh
+
+def random_point(face_vertices):
+    """ Sampling point using Barycentric coordiante.
+
+    """
+    r1, r2 = np.random.random(2)
+    sqrt_r1 = np.sqrt(r1)
+    point = (1 - sqrt_r1) * face_vertices[0, :] + \
+        sqrt_r1 * (1 - r2) * face_vertices[1, :] + \
+        sqrt_r1 * r2 * face_vertices[2, :]
+
+    return point
+
+def uniform_sample(vertices, faces, n_samples, with_normal=False):
+    """ Sampling points according to the area of mesh surface.
+
+    """
+    sampled_points = np.zeros((n_samples, 3), dtype=float)
+    normals = np.zeros((n_samples, 3), dtype=float)
+    faces = vertices[faces]
+    vec_cross = np.cross(faces[:, 1, :] - faces[:, 0, :],
+                         faces[:, 2, :] - faces[:, 0, :])
+    face_area = 0.5 * np.linalg.norm(vec_cross, axis=1)
+    cum_area = np.cumsum(face_area)
+    for i in range(n_samples):
+        face_id = np.searchsorted(cum_area, np.random.random() * cum_area[-1])
+        sampled_points[i] = random_point(faces[face_id, :, :])
+        normals[i] = vec_cross[face_id]
+    normals = normals / np.linalg.norm(normals, axis=1, keepdims=True)
+    if with_normal:
+        sampled_points = np.concatenate((sampled_points, normals), axis=1)
+    return sampled_points
+
+def pairwise_distance(A, B):
+    """ Compute pairwise distance of two point clouds.point
+
+    Args:
+        A: n x 3 numpy array
+        B: m x 3 numpy array
+
+    Return:
+        C: n x m numpy array
+
+    """
+    diff = A[:, :, None] - B[:, :, None].T
+    C = np.sqrt(np.sum(diff**2, axis=1))
+
+    return C
+
+def farthest_point_sampling(points, n_samples):
+    """ Farthest point sampling.
+
+    """
+    selected_pts = np.zeros((n_samples,), dtype=int)
+    dist_mat = pairwise_distance(points, points)
+    # start from first point
+    pt_idx = 0
+    dist_to_set = dist_mat[:, pt_idx]
+    for i in range(n_samples):
+        selected_pts[i] = pt_idx
+        dist_to_set = np.minimum(dist_to_set, dist_mat[:, pt_idx])
+        pt_idx = np.argmax(dist_to_set)
+    return selected_pts
+
+def load_obj(path_to_file):
+    """ Load obj file.
+
+    Args:
+        path_to_file: path
+
+    Returns:
+        vertices: ndarray
+        faces: ndarray, index of triangle vertices
+
+    """
+    vertices = []
+    faces = []
+    with open(path_to_file, 'r') as f:
+        for line in f:
+            if line[:2] == 'v ':
+                vertex = line[2:].strip().split(' ')
+                vertex = [float(xyz) for xyz in vertex]
+                vertices.append(vertex)
+            elif line[0] == 'f':
+                face = line[1:].replace('//', '/').strip().split(' ')
+                face = [int(idx.split('/')[0])-1 for idx in face]
+                faces.append(face)
+            else:
+                continue
+    vertices = np.asarray(vertices)
+    faces = np.asarray(faces)
+    return vertices, faces
+
+def sample_points_from_mesh(path, n_pts, with_normal=False, fps=False, ratio=2):
+    """ Uniformly sampling points from mesh model.
+
+    Args:
+        path: path to OBJ file.
+        n_pts: int, number of points being sampled.
+        with_normal: return points with normal, approximated by mesh triangle normal
+        fps: whether to use fps for post-processing, default False.
+        ratio: int, if use fps, sample ratio*n_pts first, then use fps to sample final output.
+
+    Returns:
+        points: n_pts x 3, n_pts x 6 if with_normal = True
+
+    """
+    vertices, faces = load_obj(path)
+    if faces.shape[0] == 0:
+        return None
+    if fps:
+        points = uniform_sample(vertices, faces, ratio*n_pts, with_normal)
+        pts_idx = farthest_point_sampling(points[:, :3], n_pts)
+        points = points[pts_idx]
+    else:
+        points = uniform_sample(vertices, faces, n_pts, with_normal)
+    return points
 
 def save_nocs_model_to_file(obj_model_dir):
     """ Sampling points from mesh model and normalize to NOCS.
@@ -26,9 +146,10 @@ def save_nocs_model_to_file(obj_model_dir):
         for synsetId in ['02876657', '02880940', '02942699', '02946921', '03642806', '03797390']:
             synset_dir = os.path.join(obj_model_dir, subset, synsetId)
             inst_list = sorted(os.listdir(synset_dir))
-            for instance in inst_list:
+            for instance in tqdm(inst_list):
                 path_to_mesh_model = os.path.join(synset_dir, instance, 'model.obj')
                 model_points = sample_points_from_mesh(path_to_mesh_model, 1024, fps=True, ratio=3)
+                if model_points is None: continue
                 # flip z-axis in CAMERA
                 model_points = model_points * np.array([[1.0, 1.0, -1.0]])
                 # re-align mug category
@@ -50,10 +171,10 @@ def save_nocs_model_to_file(obj_model_dir):
         with open(os.path.join(obj_model_dir, 'camera_{}.pkl'.format(subset)), 'wb') as f:
             cPickle.dump(camera, f)
     # Real dataset
-    for subset in ['real_train', 'real_test']:
+    for subset in ['train','real_test']:
         real = {}
         inst_list = glob.glob(os.path.join(obj_model_dir, subset, '*.obj'))
-        for inst_path in inst_list:
+        for inst_path in tqdm(inst_list):
             instance = os.path.basename(inst_path).split('.')[0]
             bbox_file = inst_path.replace('.obj', '.txt')
             bbox_dims = np.loadtxt(bbox_file)
@@ -105,13 +226,15 @@ def save_model_to_hdf5(obj_model_dir, n_points, fps=False, include_distractors=F
         for catId in range(1, 7):
             synset_dir = os.path.join(obj_model_dir, subset, catId_to_synsetId[catId])
             inst_list = sorted(os.listdir(synset_dir))
-            for instance in inst_list:
+            for instance in tqdm(inst_list):
                 path_to_mesh_model = os.path.join(synset_dir, instance, 'model.obj')
                 if instance == 'b9be7cfe653740eb7633a2dd89cec754':
                     continue
                 model_points = sample_points_from_mesh(path_to_mesh_model, n_points, with_normal, fps=fps, ratio=2)
+                if model_points is None: continue
                 model_points = model_points * np.array([[1.0, 1.0, -1.0]])
                 if catId == 6:
+                    # if instance not in mug_meta.keys(): continue
                     shift = mug_meta[instance][0]
                     scale = mug_meta[instance][1]
                     model_points = scale * (model_points + shift)
@@ -128,7 +251,7 @@ def save_model_to_hdf5(obj_model_dir, n_points, fps=False, include_distractors=F
             for synsetId in distractors_synsetId:
                 synset_dir = os.path.join(obj_model_dir, subset, synsetId)
                 inst_list = sorted(os.listdir(synset_dir))
-                for instance in inst_list:
+                for instance in tqdm(inst_list):
                     path_to_mesh_model = os.path.join(synset_dir, instance, 'model.obj')
                     model_points = sample_points_from_mesh(path_to_mesh_model, n_points, with_normal, fps=fps, ratio=2)
                     model_points = model_points * np.array([[1.0, 1.0, -1.0]])
@@ -141,7 +264,7 @@ def save_model_to_hdf5(obj_model_dir, n_points, fps=False, include_distractors=F
                         val_label.append(0)
                         val_count += 1
     # Real
-    for subset in ['real_train', 'real_test']:
+    for subset in ['train','real_test']:
         path_to_mesh_models = glob.glob(os.path.join(obj_model_dir, subset, '*.obj'))
         for inst_path in sorted(path_to_mesh_models):
             instance = os.path.basename(inst_path).split('.')[0]
@@ -206,7 +329,7 @@ def save_model_to_hdf5(obj_model_dir, n_points, fps=False, include_distractors=F
 
 
 if __name__ == '__main__':
-    obj_model_dir = '../9Ddata/obj_models'
+    obj_model_dir = './NOCS/obj_models'
     # Save ground truth models for training deform network
     save_nocs_model_to_file(obj_model_dir)
     # Save models to HDF5 file for training the auto-encoder.

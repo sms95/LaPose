@@ -590,7 +590,7 @@ def check(argv):
     test_data = train_dataset[0]
 def convert_to_one_hot(category_id, num_classes):
     one_hot = np.zeros(num_classes)
-    one_hot[category_id] = 1
+    one_hot[category_id.cpu().numpy()] = 1
     return one_hot
 
 if __name__=="__main__":

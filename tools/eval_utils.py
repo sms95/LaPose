@@ -145,7 +145,7 @@ def load_depth(depth_path):
     if len(depth.shape) == 3:
         # This is encoded depth image, let's convert
         # NOTE: RGB is actually BGR in opencv
-        depth16 = depth[:, :, 1] * 256 + depth[:, :, 2]
+        depth16 = depth[:, :, 1] * 255 + depth[:, :, 2]
         depth16 = np.where(depth16 == 32001, 0, depth16)
         depth16 = depth16.astype(np.uint16)
     elif len(depth.shape) == 2 and depth.dtype == 'uint16':

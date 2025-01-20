@@ -290,11 +290,20 @@ def egocentric_to_allocentric(ego_pose, src_type="mat", dst_type="mat", cam_ray=
             allo_pose = ego_pose.copy()
     return allo_pose
 
+def maximum_sctype(dtype):
+    if np.issubdtype(dtype, np.integer):
+        return np.int64
+    elif np.issubdtype(dtype, np.floating):
+        return np.float64
+    elif np.issubdtype(dtype, np.complexfloating):
+        return np.complex128
+    else:
+        raise TypeError("unsupported dtype")
 
 # For testing whether a number is close to zero
 _EPS4 = np.finfo(float).eps * 4.0
 
-_MAX_FLOAT = np.maximum_sctype(np.float32)
+_MAX_FLOAT =  maximum_sctype(np.float32) #np.maximum_sctype(np.float32)
 _FLOAT_EPS = np.finfo(np.float32).eps
 
 

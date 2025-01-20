@@ -1,6 +1,7 @@
 import os
 import torch
 import mmcv
+print(os.getcwd())
 from config.config import *
 from absl import app
 

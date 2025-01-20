@@ -86,7 +86,7 @@ flags.DEFINE_string('resume_model', '', 'path to the saved model')
 flags.DEFINE_integer('resume_point', 0, 'the epoch to continue the training')
 
 ###################for evaluation#################
-flags.DEFINE_integer('eval_refine_mug', 1, 'refine mug when evaluation')
+flags.DEFINE_integer('eval_refine_mug', 0, 'refine mug when evaluation')
 flags.DEFINE_integer('eval_visualize_pcl', 0, 'save pcl when evaluation')
 flags.DEFINE_integer('eval_inference_only', 0, 'inference without evaluation')
 flags.DEFINE_integer('eval_precise', 0, '')
